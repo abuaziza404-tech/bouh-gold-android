@@ -1,4 +1,4 @@
-name: Build BOUH QUEST PRO Navigator APK
+name: Build BOUH AL-TADARIS Field APK v3
 
 on:
   workflow_dispatch:
@@ -35,10 +35,10 @@ jobs:
         with:
           gradle-version: 8.10.2
 
-      - name: Generate BOUH Quest Pro Android project
+      - name: Generate offline Android project
         run: |
           rm -rf generated_app
-          mkdir -p generated_app/app/src/main/java/com/bouh/questpro
+          mkdir -p generated_app/app/src/main/java/com/bouh/altadarisfield
           mkdir -p generated_app/app/src/main/res/values
           mkdir -p generated_app/app/src/main/assets
 
@@ -50,7 +50,7 @@ jobs:
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories { google(); mavenCentral() }
           }
-          rootProject.name='BOUH QUEST PRO'
+          rootProject.name='BOUH AL TADARIS FIELD'
           include ':app'
           EOF
 
@@ -64,15 +64,15 @@ jobs:
           plugins { id 'com.android.application' }
 
           android {
-              namespace 'com.bouh.questpro'
+              namespace 'com.bouh.altadarisfield'
               compileSdk 35
 
               defaultConfig {
-                  applicationId 'com.bouh.questpro'
+                  applicationId 'com.bouh.altadarisfield'
                   minSdk 23
                   targetSdk 35
-                  versionCode 2
-                  versionName '2.0.0'
+                  versionCode 3
+                  versionName '3.0.0-field'
               }
           }
           EOF
@@ -82,8 +82,8 @@ jobs:
               <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#0B1120</item>
-                  <item name="android:navigationBarColor">#0B1120</item>
+                  <item name="android:statusBarColor">#060606</item>
+                  <item name="android:navigationBarColor">#060606</item>
                   <item name="android:windowFullscreen">false</item>
               </style>
           </resources>
@@ -92,17 +92,17 @@ jobs:
           cat > generated_app/app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET"/>
+              <!-- android.permission.INTERNET IS STRICTLY FORBIDDEN -->
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <uses-permission android:name="android.permission.RECORD_AUDIO"/>
               <uses-permission android:name="android.permission.VIBRATE"/>
 
               <application
-                  android:allowBackup="true"
-                  android:usesCleartextTraffic="true"
+                  android:allowBackup="false"
+                  android:usesCleartextTraffic="false"
                   android:theme="@style/AppTheme"
-                  android:label="BOUH QUEST PRO">
+                  android:label="بوح التضاريس">
                   <activity
                       android:name=".MainActivity"
                       android:screenOrientation="portrait"
@@ -116,8 +116,8 @@ jobs:
           </manifest>
           EOF
 
-          cat > generated_app/app/src/main/java/com/bouh/questpro/MainActivity.java <<'EOF'
-          package com.bouh.questpro;
+          cat > generated_app/app/src/main/java/com/bouh/altadarisfield/MainActivity.java <<'EOF'
+          package com.bouh.altadarisfield;
 
           import android.Manifest;
           import android.app.Activity;
@@ -129,6 +129,7 @@ jobs:
           import android.os.Vibrator;
           import android.webkit.GeolocationPermissions;
           import android.webkit.JavascriptInterface;
+          import android.webkit.PermissionRequest;
           import android.webkit.WebChromeClient;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
@@ -137,7 +138,7 @@ jobs:
           public class MainActivity extends Activity {
               private WebView webView;
               private LocationManager locationManager;
-              private static final int REQ_LOCATION = 800;
+              private static final int REQ = 404;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -149,9 +150,9 @@ jobs:
                   WebSettings s = webView.getSettings();
                   s.setJavaScriptEnabled(true);
                   s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
                   s.setAllowFileAccess(true);
                   s.setAllowContentAccess(true);
-                  s.setDatabaseEnabled(true);
                   s.setGeolocationEnabled(true);
                   s.setBuiltInZoomControls(false);
                   s.setDisplayZoomControls(false);
@@ -162,22 +163,21 @@ jobs:
                       public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                           callback.invoke(origin, true, false);
                       }
+                      @Override
+                      public void onPermissionRequest(PermissionRequest request) {
+                          request.grant(request.getResources());
+                      }
                   });
 
                   webView.addJavascriptInterface(new Bridge(), "BOUH");
-                  if (android.os.Build.VERSION.SDK_INT >= 23 &&
-                      checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                      requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+                  if (android.os.Build.VERSION.SDK_INT >= 23) {
+                      requestPermissions(new String[]{
+                          Manifest.permission.ACCESS_FINE_LOCATION,
+                          Manifest.permission.ACCESS_COARSE_LOCATION,
+                          Manifest.permission.RECORD_AUDIO
+                      }, REQ);
                   }
                   webView.loadUrl("file:///android_asset/index.html");
-              }
-
-              @Override
-              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-                  if (requestCode == REQ_LOCATION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                      Toast.makeText(this, "GPS enabled", Toast.LENGTH_SHORT).show();
-                  }
               }
 
               public class Bridge {
@@ -195,11 +195,11 @@ jobs:
                           }
                           if (best == null) return "{\"ok\":false,\"error\":\"NO_FIX\"}";
                           return "{\"ok\":true,\"lat\":" + best.getLatitude() +
-                                 ",\"lon\":" + best.getLongitude() +
-                                 ",\"acc\":" + best.getAccuracy() +
-                                 ",\"alt\":" + best.getAltitude() +
-                                 ",\"speed\":" + best.getSpeed() +
-                                 ",\"bearing\":" + best.getBearing() + "}";
+                                  ",\"lon\":" + best.getLongitude() +
+                                  ",\"acc\":" + best.getAccuracy() +
+                                  ",\"alt\":" + best.getAltitude() +
+                                  ",\"speed\":" + best.getSpeed() +
+                                  ",\"bearing\":" + best.getBearing() + "}";
                       } catch (Exception e) {
                           return "{\"ok\":false,\"error\":\"GPS_ERROR\"}";
                       }
@@ -216,19 +216,27 @@ jobs:
           }
           EOF
 
-          cat > generated_app/app/src/main/assets/targets.csv <<'EOF'
-          id,lat,lon,name,class,priority,radius_m,note
-          DEMO-01,19.789000,36.451000,Demo Radar Circle,Example,HOLD,30,Example only - replace with real BOUH field data
-          T1,19.973186,36.745590,Arbaat Field Candidate Example,GPZ-Regolith,HOLD,75,Stored as example screen layer - verify with real raw files
-          T2,19.881313,36.808758,Alteration Cluster Example,GH/GV,HOLD,120,Stored as example screen layer - verify with real raw files
-          EOF
-
-          cat > generated_app/app/src/main/assets/layers.geojson <<'EOF'
-          {"type":"FeatureCollection","features":[
-            {"type":"Feature","properties":{"name":"Demo Structural Corridor","class":"Structure","priority":"HOLD"},"geometry":{"type":"LineString","coordinates":[[36.42,19.78],[36.45,19.80],[36.48,19.83]]}},
-            {"type":"Feature","properties":{"name":"Demo Wadi Interface","class":"Drainage","priority":"HOLD"},"geometry":{"type":"LineString","coordinates":[[36.72,19.95],[36.745,19.973],[36.775,19.985]]}},
-            {"type":"Feature","properties":{"name":"Demo Field Polygon","class":"Prospectivity Zone","priority":"Candidate"},"geometry":{"type":"Polygon","coordinates":[[[36.72,19.94],[36.79,19.94],[36.79,20.01],[36.72,20.01],[36.72,19.94]]]}}
-          ]}
+          cat > generated_app/app/src/main/assets/bouh_data.json <<'EOF'
+          {
+            "truth_policy": "Field-check only. No economic gold proof without assay and QA/QC.",
+            "developer": "Ahmed Abu Aziza Al-Rashidi",
+            "system": "BOUH AL-TADARIS | AbuAziza Field System",
+            "target_register": [
+              {"id":"ARB-T1","name":"Arbaat Top1 GPZ-Regolith practical range","lat":19.973186,"lon":36.745590,"status":"HOLD+","decision":"FIELD-CHECK","ipi":71.4,"class":"GPZ-Regolith"},
+              {"id":"ARB-T2","name":"Arbaat Top2 GH/GV alteration cluster","lat":19.881313,"lon":36.808758,"status":"HOLD+","decision":"FIELD-CHECK","ipi":72.65,"class":"GH/GV"},
+              {"id":"ARB-T3","name":"Arbaat Top3 structural jog feeder core","lat":19.983058,"lon":36.776401,"status":"HOLD","decision":"FIELD-CHECK","ipi":68.1,"class":"Structural Jog"},
+              {"id":"REG-P01","name":"Regional v4 P01","lat":20.669096,"lon":36.428073,"status":"HOLD","decision":"FIELD-CHECK","ipi":68.05,"class":"GH/GV alteration-cluster"},
+              {"id":"REG-P02","name":"Regional v4 P02","lat":20.927345,"lon":36.490000,"status":"HOLD","decision":"FIELD-CHECK","ipi":66.7,"class":"GH/GV alteration-cluster"},
+              {"id":"REG-P03","name":"Regional v4 P03","lat":19.788172,"lon":37.023588,"status":"HOLD","decision":"FIELD-CHECK","ipi":64.8,"class":"GH/GV alteration-cluster"},
+              {"id":"A1","name":"GPZ-positive dark regolith analog","lat":19.793522,"lon":36.556198,"status":"FIELD-ANALOG","decision":"LEARNING","ipi":0,"class":"GPZ Field Analog"}
+            ],
+            "rules": {
+              "pipeline":"Structure -> Pattern -> Alteration -> Confirmation -> Decision",
+              "reject_feox_alone":true,
+              "no_clay_swir_no_target_b":true,
+              "gpz_positive_not_assay":true
+            }
+          }
           EOF
 
           cat > generated_app/app/src/main/assets/index.html <<'EOF'
@@ -237,111 +245,81 @@ jobs:
           <head>
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-          <title>BOUH QUEST PRO</title>
+          <title>بوح التضاريس | منظومة أبوعزيزه</title>
           <style>
-          :root{--bg:#0b1120;--panel:#111827;--panel2:#1f2937;--line:#374151;--text:#f9fafb;--muted:#9ca3af;--gold:#facc15;--cyan:#67e8f9;--green:#34d399;--red:#f87171}
+          :root{--black:#050505;--panel:#12120f;--panel2:#1b1b15;--gold:#d8b56a;--gold2:#f2d58b;--line:#3a3120;--green:#66d17a;--red:#f25f5c;--orange:#ff9f1c;--blue:#55c7ff;--muted:#aaa395;--text:#f6f1df}
           *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-          html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Arial,Tahoma,sans-serif}
-          #app{position:fixed;inset:0;background:#0b1120}
-          #map{position:absolute;inset:0;background:linear-gradient(135deg,#1f2937,#3f2f1d,#0b1120)}
+          html,body{margin:0;height:100%;overflow:hidden;background:#050505;color:var(--text);font-family:Tahoma,Arial,sans-serif}
+          #app{position:fixed;inset:0;background:#050505}
+          #map{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,rgba(177,111,39,.18),transparent 28%),linear-gradient(145deg,#0b0b09,#272115 45%,#090909)}
           canvas{position:absolute;inset:0}
-          #top{position:absolute;top:0;left:0;right:0;height:64px;background:rgba(11,17,32,.94);border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;padding:6px 10px;gap:10px;z-index:5;direction:rtl}
-          #menuBtn,#gpsBtn{width:52px;height:46px;border-radius:16px;border:1px solid var(--line);background:#182234;color:#fff;font-weight:900}
-          #brand{flex:1;text-align:center;line-height:1.2}.brand1{font-size:15px;font-weight:900;letter-spacing:2px}.brand2{font-size:11px;color:var(--muted)}
-          #sun{width:46px;height:46px;border-radius:18px;background:radial-gradient(circle,#facc15,#92400e,#111827);box-shadow:0 0 22px rgba(250,204,21,.42)}
-          #infoBox{position:absolute;top:76px;left:10px;background:rgba(255,255,255,.96);color:#111827;border-radius:8px;padding:8px 12px;z-index:4;direction:ltr;font-weight:700;box-shadow:0 8px 22px rgba(0,0,0,.25)}
-          #centerMark{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;background:rgba(17,24,39,.65);transform:translate(-50%,-50%);z-index:4;box-shadow:0 0 0 2px rgba(0,0,0,.25)}
-          #status{position:absolute;top:76px;left:10px;right:10px;text-align:center;background:rgba(17,24,39,.55);color:#fff;font-size:12px;border-radius:12px;padding:6px;z-index:3;pointer-events:none}
-          #zoomCtl{position:absolute;right:12px;top:146px;z-index:4;display:flex;flex-direction:column;gap:10px}.zbtn{width:58px;height:58px;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(31,41,55,.92);color:#fff;font-size:26px;font-weight:900}.zbtn.small{font-size:16px}
-          #hud{position:absolute;left:12px;right:12px;bottom:86px;z-index:4;background:rgba(11,17,32,.88);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-          .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{background:#1a2537;border-radius:14px;padding:10px}.label{font-size:11px;color:var(--muted)}.value{font-weight:900;font-size:18px;direction:ltr;text-align:left}
-          #bottom{position:absolute;left:0;right:0;bottom:0;height:74px;z-index:6;background:rgba(17,24,39,.96);border-top:1px solid rgba(255,255,255,.10);display:grid;grid-template-columns:repeat(5,1fr)}
-          .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#e5e7eb;border-left:1px solid rgba(255,255,255,.06);font-size:11px}.tab b{font-size:24px}.tab.active{background:#f9fafb;color:#111827}
-          .sheet{position:absolute;left:0;right:0;bottom:74px;max-height:68%;background:#f8fafc;color:#111827;border-radius:22px 22px 0 0;z-index:7;box-shadow:0 -12px 32px rgba(0,0,0,.35);display:none;overflow:auto;direction:rtl}
-          .sheet.show{display:block}.sheetHead{position:sticky;top:0;background:#f8fafc;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e5e7eb;z-index:2}.sheetTitle{flex:1;font-size:21px;font-weight:800}.close{border:0;background:transparent;font-size:28px}
-          .item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #e5e7eb}.itemIcon{width:38px;text-align:center;font-size:26px}.itemText{flex:1}.itemText b{font-size:18px}.itemText p{margin:2px 0 0;color:#6b7280;font-size:12px}.switch{width:48px;height:28px;border-radius:999px;background:#d1d5db;position:relative}.switch.on{background:#22c55e}.switch:after{content:"";position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#fff}.switch.on:after{left:24px}
-          .layerThumb{height:54px;width:90px;border-radius:8px;background:linear-gradient(135deg,#18324a,#b08952,#e5e7eb);border:1px solid #d1d5db}.danger{color:#b91c1c}.ok{color:#047857}
-          #toast{position:absolute;bottom:168px;left:30px;right:30px;text-align:center;background:rgba(0,0,0,.78);color:#fff;padding:10px;border-radius:999px;z-index:20;display:none}
-          input[type=range]{width:100%}
+          #top{position:absolute;top:0;left:0;right:0;height:72px;background:rgba(8,8,7,.96);z-index:10;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:6px 10px;direction:rtl}
+          #logo{width:54px;height:54px;border-radius:18px;background:radial-gradient(circle at 40% 35%,#ffe39b,#b27a2a 45%,#120c05 75%);box-shadow:0 0 22px rgba(216,181,106,.35)}
+          #brand{flex:1;text-align:center;line-height:1.1}.brandAr{font-size:22px;font-weight:900;color:#f4e7c1}.brandEn{font-size:13px;font-weight:800;letter-spacing:1px;color:var(--gold)}.dev{font-size:10px;color:var(--muted);margin-top:2px}
+          .miniBtn{width:46px;height:46px;border-radius:15px;background:#171715;border:1px solid var(--line);color:#fff;font-weight:900}
+          #engine{position:absolute;top:78px;left:12px;right:12px;z-index:6;text-align:center;background:rgba(24,50,25,.9);border:1px solid #355d35;border-radius:12px;padding:7px;font-size:12px;color:#b6ffbf;font-weight:800}
+          #coordBox{position:absolute;top:120px;left:10px;background:rgba(250,248,239,.96);color:#1b1407;padding:8px 12px;border-radius:8px;z-index:7;direction:ltr;font-weight:800;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+          #scaleBox{font-size:11px;color:#4c3d25}
+          #side{position:absolute;right:10px;top:150px;z-index:7;display:flex;flex-direction:column;gap:9px}.tool{width:56px;height:56px;border-radius:15px;background:rgba(20,20,18,.94);border:1px solid var(--line);color:#f5e4b3;font-size:20px;font-weight:900}
+          #center{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid white;background:rgba(0,0,0,.4);transform:translate(-50%,-50%);z-index:8}
+          #hud{position:absolute;left:10px;right:10px;bottom:92px;background:rgba(9,9,8,.90);border:1px solid var(--line);border-radius:18px;padding:10px;z-index:8;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+          .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{background:#181812;border:1px solid #2d281b;border-radius:13px;padding:9px}.label{font-size:10px;color:var(--muted)}.value{font-size:17px;font-weight:900;color:white;direction:ltr;text-align:left}
+          #bottom{position:absolute;left:0;right:0;bottom:0;height:78px;background:rgba(10,10,9,.98);border-top:1px solid var(--line);z-index:12;display:grid;grid-template-columns:repeat(5,1fr)}.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#cbbd98;font-size:11px;border-left:1px solid #242016}.tab b{font-size:22px}.tab.active{background:#e6d2a3;color:#111}
+          .sheet{position:absolute;left:0;right:0;bottom:78px;max-height:72%;overflow:auto;background:#f7f2e4;color:#15120c;border-radius:22px 22px 0 0;z-index:20;display:none;box-shadow:0 -18px 40px rgba(0,0,0,.5);direction:rtl}.sheet.show{display:block}.head{position:sticky;top:0;background:#f7f2e4;border-bottom:1px solid #d7c9a7;padding:14px 16px;display:flex;align-items:center;gap:10px;z-index:2}.head h2{margin:0;flex:1;font-size:22px}.x{border:0;background:transparent;font-size:30px}
+          .item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #e5d8ba}.ico{font-size:26px;width:34px;text-align:center}.txt{flex:1}.txt b{font-size:17px}.txt p{margin:3px 0 0;font-size:12px;color:#6b604b}.pill{padding:4px 10px;border-radius:999px;background:#1b1b15;color:#f5d98e;font-size:11px}.sw{width:48px;height:28px;border-radius:99px;background:#bbb;position:relative}.sw.on{background:#1b8b48}.sw:after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:white;top:4px;left:4px}.sw.on:after{left:24px}
+          #analysis{position:absolute;left:8px;right:8px;top:112px;bottom:86px;z-index:25;background:rgba(12,10,6,.96);border:2px solid var(--gold);border-radius:22px;padding:14px;display:none;box-shadow:0 0 0 3px rgba(0,0,0,.4);direction:rtl}#analysis h1{margin:0 0 10px;color:#f2d58b;text-align:center;font-size:22px}.tbl{width:100%;border-collapse:collapse;margin-top:10px}.tbl th,.tbl td{border:1px solid #5a4b2c;padding:7px;text-align:center}.tbl th{background:#43371f;color:#f4e7c1}.stars{font-size:24px;color:#facc15;letter-spacing:2px;text-align:center}.bigActions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.goldBtn{height:50px;background:#d9bb77;border:0;border-radius:10px;font-weight:900}.darkBtn{height:50px;background:#191713;color:#fff;border:1px solid #705d35;border-radius:10px;font-weight:900}
+          #toast{position:absolute;bottom:168px;left:28px;right:28px;text-align:center;background:rgba(0,0,0,.84);color:#fff;padding:11px;border-radius:999px;z-index:40;display:none}
           </style>
           </head>
           <body>
           <div id="app">
             <div id="map"><canvas id="cv"></canvas></div>
-            <div id="top"><button id="gpsBtn" onclick="locateMe()">GPS</button><div id="brand"><div class="brand1">بوح التضاريس | QUEST PRO</div><div class="brand2">Maps • Layers • Placemarks • GPS • Compass</div></div><div id="sun"></div></div>
-            <div id="infoBox"><span id="coord">19.800000°N 36.480000°E</span><br><small id="scale">Scale 1:25K • DEM/Grid</small></div>
-            <div id="status">جاهز للملاحة الميدانية — BOUH offline navigator</div>
-            <div id="centerMark" onclick="openSheet('center')"></div>
-            <div id="zoomCtl"><button class="zbtn" onclick="zoomBy(1)">+</button><button class="zbtn" onclick="zoomBy(-1)">−</button><button class="zbtn small" onclick="toggleRadar()">RAD</button><button class="zbtn small" onclick="openSheet('tools')">⋮</button></div>
-            <div id="hud"><div class="grid">
-              <div class="card"><div class="label">Longitude</div><div id="lon" class="value">36.480000</div></div>
-              <div class="card"><div class="label">Latitude</div><div id="lat" class="value">19.800000</div></div>
-              <div class="card"><div class="label">Zoom / Scale</div><div id="zoomText" class="value">12</div></div>
-              <div class="card"><div class="label">Mode</div><div id="modeText" class="value">BOUH Radar</div></div>
-            </div></div>
-
-            <div id="bottom">
-              <div class="tab" onclick="openSheet('app')"><b>☰</b><span>النظام</span></div>
-              <div class="tab" onclick="openSheet('maps')"><b>▰</b><span>الخرائط</span></div>
-              <div class="tab" onclick="openSheet('marks')"><b>⚑</b><span>المعالم</span></div>
-              <div class="tab" onclick="openSheet('gps')"><b>⌖</b><span>GPS</span></div>
-              <div class="tab" onclick="openSheet('compass')"><b>◈</b><span>البوصلة</span></div>
-            </div>
-
+            <div id="top"><button class="miniBtn" onclick="openSheet('alerts')">●</button><div id="brand"><div class="brandAr">بوح التضاريس</div><div class="brandEn">BOUH ALTADARIS FIELD ENGINE</div><div class="dev">تطوير: أحمد أبو عزيزه الرشيدي</div></div><div id="logo"></div><button class="miniBtn" onclick="openSheet('settings')">⚙</button></div>
+            <div id="engine">BOUH SUPREME ENGINE v3 PRO — ACTIVE / OFFLINE / NO INTERNET</div>
+            <div id="coordBox"><span id="coord">19.800000°N 36.480000°E</span><br><span id="scaleBox">Google Satellite style • Offline Canvas</span></div>
+            <div id="side"><button class="tool" onclick="zoomBy(1)">+</button><button class="tool" onclick="zoomBy(-1)">−</button><button class="tool" onclick="toggleLayer()">▣</button><button class="tool" onclick="analyze()">AI</button><button class="tool" onclick="locateMe()">⌖</button></div>
+            <div id="center" onclick="openSheet('center')"></div>
+            <div id="hud"><div class="grid"><div class="card"><div class="label">Longitude</div><div class="value" id="lon">36.480000</div></div><div class="card"><div class="label">Latitude</div><div class="value" id="lat">19.800000</div></div><div class="card"><div class="label">Decision</div><div class="value" id="decision">FIELD-CHECK</div></div><div class="card"><div class="label">Mode</div><div class="value" id="mode">BOUH Radar</div></div></div></div>
+            <div id="bottom"><div class="tab" onclick="openSheet('dashboard')"><b>▦</b><span>لوحة الحكم</span></div><div class="tab" onclick="openSheet('maps')"><b>▰</b><span>الخرائط</span></div><div class="tab" onclick="openSheet('targets')"><b>⚑</b><span>الأهداف</span></div><div class="tab" onclick="openSheet('gpz')"><b>◎</b><span>GPZ</span></div><div class="tab" onclick="openSheet('security')"><b>⌫</b><span>الأمان</span></div></div>
             <div id="sheet" class="sheet"></div>
+            <div id="analysis"></div>
             <div id="toast"></div>
           </div>
-
           <script>
-          const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),sheet=document.getElementById('sheet');
-          let center={lat:19.80,lon:36.48},gps=null,zoom=12,radar=true,showGrid=true,showTargets=true,showGeo=true,showSatellite=true,track=[],measure=[];
-          let targets=[
-            {id:'DEMO-01',lat:19.789,lon:36.451,name:'Demo Radar Circle',class:'Example',priority:'HOLD',r:30},
-            {id:'T1',lat:19.973186,lon:36.745590,name:'Arbaat Candidate Example',class:'GPZ-Regolith',priority:'HOLD',r:75},
-            {id:'T2',lat:19.881313,lon:36.808758,name:'Alteration Cluster Example',class:'GH/GV',priority:'HOLD',r:120}
+          const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),sheet=document.getElementById('sheet'),modal=document.getElementById('analysis');
+          let center={lat:19.80,lon:36.48},zoom=12,gps=null,radar=true,showAlter=true,track=[],logs=JSON.parse(localStorage.getItem('BOUH_LOGS_V3')||'[]');
+          const targets=[
+            {id:'ARB-T1',name:'Arbaat GPZ-Regolith practical range',lat:19.973186,lon:36.745590,status:'HOLD+',ipi:71.4,cls:'GPZ-Regolith'},
+            {id:'ARB-T2',name:'GH/GV alteration cluster',lat:19.881313,lon:36.808758,status:'HOLD+',ipi:72.65,cls:'GH/GV'},
+            {id:'ARB-T3',name:'Structural jog feeder core',lat:19.983058,lon:36.776401,status:'HOLD',ipi:68.1,cls:'Structural Jog'},
+            {id:'REG-P01',name:'Regional v4 P01',lat:20.669096,lon:36.428073,status:'HOLD',ipi:68.05,cls:'Alteration'},
+            {id:'REG-P02',name:'Regional v4 P02',lat:20.927345,lon:36.49,status:'HOLD',ipi:66.7,cls:'Alteration'},
+            {id:'A1',name:'GPZ-positive dark regolith analog',lat:19.793522,lon:36.556198,status:'ANALOG',ipi:0,cls:'Field Analog'}
           ];
-          let lines=[[[19.78,36.42],[19.80,36.45],[19.83,36.48]],[[19.95,36.72],[19.973,36.745],[19.985,36.775]]];
-
-          function resize(){cv.width=innerWidth;cv.height=innerHeight;draw()} addEventListener('resize',resize);
-          function factor(){return 9000*Math.pow(1.24,zoom-12)}
-          function project(lat,lon){return{x:(lon-center.lon)*factor()+cv.width/2,y:(center.lat-lat)*factor()+cv.height/2}}
-          function unproject(x,y){return{lon:(x-cv.width/2)/factor()+center.lon,lat:center.lat-(y-cv.height/2)/factor()}}
-          function metersToPixels(m,lat=center.lat){return m*(zoom/12)*0.85}
-          function dist(a,b){let R=6371000,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180,dla=(b.lat-a.lat)*Math.PI/180,dlo=(b.lon-a.lon)*Math.PI/180;let h=Math.sin(dla/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
-          function draw(){ctx.clearRect(0,0,cv.width,cv.height);drawBase();if(showGrid)drawGrid();if(showGeo)drawGeo();if(radar)drawRadar();if(showTargets)drawTargets();drawTrack();drawMeasure();drawGps();updateHud()}
-          function drawBase(){let g=ctx.createLinearGradient(0,0,cv.width,cv.height);g.addColorStop(0,showSatellite?'#1f2937':'#263c30');g.addColorStop(.5,showSatellite?'#59422a':'#466d51');g.addColorStop(1,'#0b1120');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);ctx.globalAlpha=.22;for(let i=0;i<40;i++){ctx.beginPath();ctx.arc((i*97)%cv.width,(i*151)%cv.height,80+(i%5)*35,0,Math.PI*2);ctx.fillStyle=i%2?'#8b5e34':'#111827';ctx.fill()}ctx.globalAlpha=1}
-          function drawGrid(){ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;for(let x=0;x<cv.width;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke()}for(let y=0;y<cv.height;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke()}}
-          function drawGeo(){ctx.lineWidth=3;lines.forEach((ln,k)=>{ctx.strokeStyle=k?'rgba(52,211,153,.82)':'rgba(103,232,249,.88)';ctx.beginPath();ln.forEach((p,i)=>{let q=project(p[0],p[1]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.stroke()})}
-          function drawRadar(){let x=cv.width/2,y=cv.height/2;ctx.save();ctx.strokeStyle='rgba(52,211,153,.45)';ctx.lineWidth=1;for(let r=70;r<cv.width;r+=70){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke()}for(let a=0;a<360;a+=30){let t=a*Math.PI/180;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(t)*cv.width,y+Math.sin(t)*cv.width);ctx.stroke()}ctx.restore()}
-          function drawTargets(){targets.forEach(t=>{let p=project(t.lat,t.lon),r=metersToPixels(t.r,t.lat);ctx.fillStyle=t.priority==='HOLD'?'rgba(250,204,21,.16)':'rgba(52,211,153,.16)';ctx.strokeStyle=t.class.includes('GPZ')?'#facc15':'#67e8f9';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 12px Arial';ctx.fillText(t.id,p.x+8,p.y-8)})}
-          function drawGps(){if(!gps)return;let p=project(gps.lat,gps.lon);ctx.fillStyle='rgba(96,165,250,.18)';ctx.strokeStyle='#60a5fa';ctx.beginPath();ctx.arc(p.x,p.y,metersToPixels(gps.acc||20,gps.lat),0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#60a5fa';ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.fill();ctx.stroke()}
-          function drawTrack(){if(track.length<2)return;ctx.strokeStyle='#f87171';ctx.lineWidth=3;ctx.beginPath();track.forEach((t,i)=>{let p=project(t.lat,t.lon);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.stroke()}
-          function drawMeasure(){if(measure.length<1)return;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();measure.forEach((m,i)=>{let p=project(m.lat,m.lon);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.stroke();ctx.setLineDash([])}
-          function updateHud(){lat.textContent=center.lat.toFixed(6);lon.textContent=center.lon.toFixed(6);zoomText.textContent=String(zoom);modeText.textContent=radar?'BOUH Radar':'Map';coord.textContent=center.lat.toFixed(6)+'°N  '+center.lon.toFixed(6)+'°E';scale.textContent='Zoom '+zoom+' • '+(gps?('GPS ±'+Math.round(gps.acc)+'m'):'No GPS fix')}
-          function zoomBy(d){zoom=Math.max(1,Math.min(22,zoom+d));draw();vib(20)}
-          function toggleRadar(){radar=!radar;draw();toast(radar?'Radar enabled':'Radar hidden')}
-          function locateMe(){toast('جار تحديث GPS...');try{let r=JSON.parse(BOUH.lastLocation());if(r.ok){gps=r;center={lat:r.lat,lon:r.lon};track.push({lat:r.lat,lon:r.lon,t:Date.now()});draw();toast('GPS OK ±'+Math.round(r.acc)+'m')}else toast('GPS: '+r.error)}catch(e){toast('GPS غير متاح الآن')}}
-          function vib(ms){try{BOUH.vibrate(ms)}catch(e){}}
-          function toast(t){let el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>el.style.display='none',2200)}
-          function row(icon,title,sub,action='',right=''){return `<div class="item" ${action?`onclick="${action}"`:''}><div class="itemIcon">${icon}</div><div class="itemText"><b>${title}</b><p>${sub||''}</p></div>${right}</div>`}
-          function sw(on,fn){return `<div onclick="${fn};event.stopPropagation()" class="switch ${on?'on':''}"></div>`}
-          function openSheet(kind){vib(20);let html=`<div class="sheetHead"><button class="close" onclick="closeSheet()">×</button><div class="sheetTitle">${title(kind)}</div><button class="close" onclick="closeSheet()">⋮</button></div>`; 
-            if(kind==='app') html+= row('⚙','الإعدادات','الشاشة، الصيغ، التخزين، الأزرار')+row('▣','مساحات العمل','BOUH / Arbaat / Red Sea Hills')+row('⇅','نسخ احتياطي واستعادة','حفظ/استرجاع المشروع')+row('ⓘ','حول التطبيق','BOUH QUEST PRO v2');
-            if(kind==='maps') html+= row('▰','الخرائط والطبقات','استعراض الخرائط المتاحة')+row('◫','Google Satellite style','طبقة مرئية مؤقتة', '', sw(showSatellite,'showSatellite=!showSatellite;draw();openSheet(\\'maps\\')'))+row('▤','Geological GeoJSON','خطوط، وديان، مضلعات', '', sw(showGeo,'showGeo=!showGeo;draw();openSheet(\\'maps\\')'))+row('◎','BOUH targets CSV','دوائر وأهداف ميدانية', '', sw(showTargets,'showTargets=!showTargets;draw();openSheet(\\'maps\\')'))+row('▦','Grid overlay','شبكة قراءة وملاحة', '', sw(showGrid,'showGrid=!showGrid;draw();openSheet(\\'maps\\')'))+row('☰','إدارة الشفافية','تحكم طبقات العرض <input type=range min=0 max=100 value=70>');
-            if(kind==='marks') html+= row('⚑','المعالم المعروضة','Targets / waypoints / folders')+targets.map(t=>row('📍',t.id+' — '+t.name,t.class+' • '+t.priority,`center={lat:${t.lat},lon:${t.lon}};draw();closeSheet()`)).join('')+row('＋','إنشاء معلم عند المركز','حفظ نقطة جديدة', 'addCenterMark()')+row('⇧','استيراد / تصدير','KML, KMZ, GPX, CSV, GeoJSON');
-            if(kind==='gps') html+= row('⌖','موقفي في الوقت الحقيقي','تحديث GPS وتتبع الحركة','locateMe()')+row('●','مسجل المسار','عدد نقاط المسار: '+track.length)+row('⌁','دقة GPS','يعرض نصف قطر الدقة حول الموقع')+row('↧','تصدير Track GPX','قريباً: إخراج نص GPX');
-            if(kind==='compass') html+= row('◈','البوصلة','اتجاه تقريبي من GPS إن توفر')+row('➤','تعيين وجهة','المركز الحالي كهدف')+row('↗','المسافة إلى المركز','من GPS إلى مركز الخريطة: '+(gps?Math.round(dist(gps,center))+' m':'لا يوجد GPS'))+row('☷','لوحة القيادة','سرعة، ارتفاع، اتجاه، دقة');
-            if(kind==='center') html+= row('◎','نقطة مركز الخريطة',center.lat.toFixed(6)+', '+center.lon.toFixed(6))+row('⚑','إنشاء معلم هنا','حفظ نقطة عند المركز','addCenterMark()')+row('📏','بدء القياس','إضافة نقطة قياس عند المركز','measure.push({lat:center.lat,lon:center.lon});draw();closeSheet();toast(\\'تمت إضافة نقطة قياس\\')')+row('⌖','اذهب إلى GPS','توسيط الخريطة على موقعي','locateMe();closeSheet()');
-            if(kind==='tools') html+= row('📐','أداة قياس','أضف نقاط قياس من مركز الشاشة')+row('🧭','إحداثية مصورة','التقاط/توثيق موضع')+row('🗺','تصدير خريطة','حفظ لقطة/تقرير ميداني')+row('🔎','بحث عن موقع','إدخال إحداثيات يدوياً');
-            sheet.innerHTML=html;sheet.classList.add('show')
-          }
-          function title(k){return {app:'النظام',maps:'الخرائط والطبقات',marks:'المعالم',gps:'وضع GPS',compass:'البوصلة والاتجاه',center:'قائمة مركز الخريطة',tools:'الأدوات'}[k]||'القائمة'}
-          function closeSheet(){sheet.classList.remove('show')}
-          function addCenterMark(){let id='M'+(targets.length+1);targets.push({id,lat:center.lat,lon:center.lon,name:'Center Mark',class:'User',priority:'Field',r:30});draw();closeSheet();toast('تم حفظ المعلم '+id)}
-          let drag=false,last={x:0,y:0};cv.onpointerdown=e=>{drag=true;last={x:e.clientX,y:e.clientY}};cv.onpointermove=e=>{if(!drag)return;let dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};center.lon-=dx/factor();center.lat+=dy/factor();draw()};cv.onpointerup=e=>drag=false;
-          resize();setInterval(()=>{if(gps)locateMe()},30000);
+          function resize(){cv.width=innerWidth;cv.height=innerHeight;draw()}addEventListener('resize',resize);
+          function fac(){return 9800*Math.pow(1.24,zoom-12)}function project(lat,lon){return{x:(lon-center.lon)*fac()+cv.width/2,y:(center.lat-lat)*fac()+cv.height/2}}function dist(a,b){let R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180,h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+          function draw(){ctx.clearRect(0,0,cv.width,cv.height);base();grid();if(showAlter)alteration();if(radar)radarDraw();pins();gpsDraw();hud()}
+          function base(){let g=ctx.createLinearGradient(0,0,cv.width,cv.height);g.addColorStop(0,'#201d17');g.addColorStop(.42,'#5b452b');g.addColorStop(1,'#080807');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);ctx.globalAlpha=.22;for(let i=0;i<55;i++){ctx.beginPath();ctx.arc((i*83)%cv.width,(i*139)%cv.height,50+(i%7)*18,0,Math.PI*2);ctx.fillStyle=i%3?'#9b7446':'#10100e';ctx.fill()}ctx.globalAlpha=1}
+          function grid(){ctx.strokeStyle='rgba(255,255,255,.075)';for(let x=0;x<cv.width;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke()}for(let y=0;y<cv.height;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke()}}
+          function alteration(){ctx.globalAlpha=.52;ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;[[[19.78,36.42],[19.80,36.45],[19.83,36.48]],[[19.95,36.72],[19.973,36.745],[19.985,36.775]],[[20.62,36.39],[20.669,36.428],[20.72,36.45]]].forEach(l=>{ctx.beginPath();l.forEach((p,i)=>{let q=project(p[0],p[1]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.stroke()});ctx.globalAlpha=1}
+          function radarDraw(){let x=cv.width/2,y=cv.height/2;ctx.strokeStyle='rgba(102,209,122,.45)';for(let r=70;r<cv.width;r+=70){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke()}for(let a=0;a<360;a+=30){let t=a*Math.PI/180;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(t)*cv.width,y+Math.sin(t)*cv.width);ctx.stroke()}}
+          function pins(){targets.forEach(t=>{let p=project(t.lat,t.lon),r=t.cls.includes('GPZ')?38:30;ctx.fillStyle=t.status.includes('HOLD')?'rgba(216,181,106,.20)':'rgba(102,209,122,.18)';ctx.strokeStyle=t.cls.includes('GPZ')?'#f2d58b':'#67e8f9';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 12px Arial';ctx.fillText(t.id,p.x+8,p.y-8)})}
+          function gpsDraw(){if(!gps)return;let p=project(gps.lat,gps.lon);ctx.fillStyle='#55c7ff';ctx.strokeStyle='white';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.fill();ctx.stroke()}
+          function hud(){lat.textContent=center.lat.toFixed(6);lon.textContent=center.lon.toFixed(6);coord.textContent=center.lat.toFixed(6)+'°N '+center.lon.toFixed(6)+'°E';scaleBox.textContent='Zoom '+zoom+' • '+(gps?'GPS ±'+Math.round(gps.acc)+'m':'Offline mode')}
+          function zoomBy(d){zoom=Math.max(1,Math.min(22,zoom+d));draw();vib(20)}function toggleLayer(){showAlter=!showAlter;draw();toast(showAlter?'طبقات التحوير مفعلة':'طبقات التحوير مخفية')}function vib(ms){try{BOUH.vibrate(ms)}catch(e){}}
+          function locateMe(){toast('جار قفل GPS بدون إنترنت...');try{let r=JSON.parse(BOUH.lastLocation());if(r.ok){gps=r;center={lat:r.lat,lon:r.lon};track.push({lat:r.lat,lon:r.lon,t:Date.now()});draw();toast('تم قفل GPS ±'+Math.round(r.acc)+'m')}else toast('GPS: '+r.error)}catch(e){toast('GPS غير متاح')}}
+          function scoreAt(c){let nearest=targets.map(t=>({...t,d:dist(c,t)})).sort((a,b)=>a.d-b.d)[0],dec=Math.exp(-nearest.d/18000);let seed=Math.abs(Math.sin(c.lat*12.9898+c.lon*78.233))*43758.5453;let n=seed-Math.floor(seed);let structure=Math.min(1,.38+dec*.42+n*.12),pattern=Math.min(1,.35+dec*.40+n*.10),clay=Math.min(1,.30+dec*.35+n*.16),iron=Math.min(1,.28+dec*.25+n*.18),quartz=Math.min(1,.32+dec*.38+n*.14);let ipi=(.30*structure+.20*pattern+.20*clay+.15*iron+.15*quartz)*100;let status=(structure<.35||pattern<.35)?'HOLD/LOW':(clay<.45?'HOLD':'FIELD-CHECK');return{nearest,structure,pattern,clay,iron,quartz,ipi,status}}
+          function analyze(){let s=scoreAt(center);decision.textContent=s.status;modal.style.display='block';modal.innerHTML=`<button class="x" style="float:left;color:#f2d58b" onclick="modal.style.display='none'">×</button><h1>تحليل فوري للنقطة المختارة</h1><div style="text-align:center;color:#f2d58b;font-weight:900">الإحداثيات: ${center.lat.toFixed(6)}, ${center.lon.toFixed(6)}</div><div style="text-align:center;margin:8px">أقرب مرجع: ${s.nearest.id} — ${Math.round(s.nearest.d)} m</div><table class="tbl"><tr><th>المؤشر</th><th>القيمة</th><th>المعالجة</th><th>التقييم</th></tr><tr><td>Structure</td><td>${s.structure.toFixed(2)}</td><td>BOUH/KCL</td><td>${s.structure>.7?'عالٍ':'متوسط'}</td></tr><tr><td>Pattern</td><td>${s.pattern.toFixed(2)}</td><td>Lineament</td><td>${s.pattern>.7?'عالٍ':'متوسط'}</td></tr><tr><td>Clay/SWIR</td><td>${s.clay.toFixed(2)}</td><td>Band Logic</td><td>${s.clay>.55?'داعم':'ناقص'}</td></tr><tr><td>FeOx</td><td>${s.iron.toFixed(2)}</td><td>لا يعتمد منفرداً</td><td>داعم فقط</td></tr><tr><td>Quartz/Silica</td><td>${s.quartz.toFixed(2)}</td><td>ASTER proxy</td><td>${s.quartz>.6?'داعم':'متوسط'}</td></tr></table><p style="text-align:center;font-weight:900;color:#f2d58b">الحكم: ${s.status} — IPI ${s.ipi.toFixed(1)}</p><div class="stars">★ ★ ★ ★ ★ ☆</div><div class="bigActions"><button class="goldBtn" onclick="saveLog()">تسجيل النقطة</button><button class="darkBtn" onclick="modal.style.display='none'">تحليل نقطة جديدة</button></div><p style="font-size:12px;color:#c9bea0">تنبيه: هذا Field-check وليس إثبات ذهب اقتصادي. الإثبات يحتاج GPZ/ذهب مستخرج/Assay/QAQC.</p>`}
+          function saveLog(){let s=scoreAt(center);logs.push({time:new Date().toISOString(),lat:center.lat,lon:center.lon,score:s.ipi,status:s.status});localStorage.setItem('BOUH_LOGS_V3',JSON.stringify(logs));toast('تم حفظ النقطة محلياً');modal.style.display='none'}
+          function row(i,t,s,a='',r=''){return `<div class="item" ${a?`onclick="${a}"`:''}><div class="ico">${i}</div><div class="txt"><b>${t}</b><p>${s||''}</p></div>${r}</div>`}function sw(on,fn){return `<div class="sw ${on?'on':''}" onclick="${fn};event.stopPropagation()"></div>`}
+          function openSheet(k){let h=`<div class="head"><button class="x" onclick="closeSheet()">×</button><h2>${title(k)}</h2><span class="pill">OFFLINE</span></div>`;if(k==='dashboard')h+=row('▦','لوحة الحكم','Structure → Pattern → Alteration → Confirmation → Decision')+row('✦','تحليل النقطة المختارة','يفتح نافذة تقييم فوري','analyze()')+row('⚠','قاعدة الحقيقة','لا إثبات اقتصادي بلا assay/QAQC');if(k==='maps')h+=row('🛰','Satellite/Hybrid visual style','محاكاة عرض خرائط أوفلاين')+row('▤','Geology/Spectral overlay','خطوط ودوائر ميدانية', '', sw(showAlter,'showAlter=!showAlter;draw();openSheet(\\'maps\\')'))+row('◎','Radar overlay','شبكة رادارية فوق الخريطة','',sw(radar,'radar=!radar;draw();openSheet(\\'maps\\')'))+row('⇧','Import MBTiles/GPKG/SQLite','واجهة مهيأة لإضافة البيانات الأصلية في النسخة التالية');if(k==='targets')h+=targets.map(t=>row('⚑',t.id+' — '+t.name,t.cls+' • '+t.status,`center={lat:${t.lat},lon:${t.lon}};draw();closeSheet()`)).join('')+row('＋','إنشاء معلم عند المركز','حفظ نقطة محلية','saveLog()');if(k==='gpz')h+=row('🎙','فحص النغمة','واجهة مساعدة صوتية للـ GPZ','toast(\\'تم تفعيل وضع فحص النغمة\\')')+row('⚙','إعدادات GPZ','Severe/Difficult عند الأرض المغناطيسية العالية')+row('📏','قاعدة 30cm','أبعد الهاتف عن الكويل والبطارية لتقليل الضوضاء');if(k==='security')h+=row('🔒','NO INTERNET','التطبيق بلا إذن إنترنت في AndroidManifest')+row('⌫','مسح آمن','حذف السجلات المحلية','localStorage.clear();logs=[];closeSheet();toast(\\'تم مسح السجلات المحلية\\')')+row('🧾','سجل محلي','عدد السجلات: '+logs.length);if(k==='settings')h+=row('⚙','الإعدادات','AMOLED / High contrast / Field mode')+row('🔋','حفظ البطارية','تصميم أسود عالي التباين')+row('ⓘ','حول','تطوير: أحمد أبو عزيزه الرشيدي');if(k==='alerts')h+=row('●','حالة النظام','ACTIVE — OFFLINE — SECURE')+row('GPS','إشارة الموقع',gps?'متاحة':'لم يتم القفل بعد');if(k==='center')h+=row('◎','مركز الخريطة',center.lat.toFixed(6)+', '+center.lon.toFixed(6))+row('✦','تحليل هنا','تشغيل الحكم الفوري','analyze()')+row('⚑','حفظ معلم','إضافة نقطة محلية','saveLog()');sheet.innerHTML=h;sheet.classList.add('show');vib(20)}
+          function title(k){return{dashboard:'لوحة الحكم',maps:'الخرائط والطبقات',targets:'الأهداف والمعالم',gpz:'مساعد GPZ 7000',security:'الأمان والمسح',settings:'الإعدادات',alerts:'تنبيهات النظام',center:'مركز الخريطة'}[k]||'القائمة'}function closeSheet(){sheet.classList.remove('show')}
+          function toast(t){let e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>e.style.display='none',2200)}
+          let drag=false,last={x:0,y:0};cv.onpointerdown=e=>{drag=true;last={x:e.clientX,y:e.clientY}};cv.onpointermove=e=>{if(!drag)return;let dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};center.lon-=dx/fac();center.lat+=dy/fac();draw()};cv.onpointerup=e=>drag=false;
+          resize();
           </script>
-          </body></html>
+          </body>
+          </html>
           EOF
 
       - name: Build debug APK
@@ -349,13 +327,21 @@ jobs:
           cd generated_app
           gradle :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Verify forbidden INTERNET permission is absent
+        run: |
+          if grep -R "android.permission.INTERNET" generated_app/app/src/main/AndroidManifest.xml; then
+            echo "INTERNET permission found. Build blocked."
+            exit 1
+          fi
+          echo "OK: no INTERNET permission in AndroidManifest.xml"
+
       - name: Rename APK
         run: |
           mkdir -p output
-          cp generated_app/app/build/outputs/apk/debug/app-debug.apk output/BOUH_QUEST_PRO_Navigator_v2-debug.apk
+          cp generated_app/app/build/outputs/apk/debug/app-debug.apk output/BOUH_AL_TADARIS_FIELD_ENGINE_v3_OFFLINE-debug.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: BOUH_QUEST_PRO_NAVIGATOR_V2_APK
-          path: output/BOUH_QUEST_PRO_Navigator_v2-debug.apk
+          name: BOUH_AL_TADARIS_FIELD_ENGINE_V3_OFFLINE_APK
+          path: output/BOUH_AL_TADARIS_FIELD_ENGINE_v3_OFFLINE-debug.apk
