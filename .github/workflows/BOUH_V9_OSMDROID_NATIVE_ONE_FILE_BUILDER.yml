@@ -1,0 +1,339 @@
+name: Build BOUH V9 NATIVE OSMDROID APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Generate native Osmdroid project
+        run: |
+          rm -rf BOUH_V9_NATIVE_OSMDROID
+          mkdir -p BOUH_V9_NATIVE_OSMDROID/app/src/main/java/com/bouh/v9
+          mkdir -p BOUH_V9_NATIVE_OSMDROID/app/src/main/res/values
+          mkdir -p BOUH_V9_NATIVE_OSMDROID/app/src/main/res/drawable
+          mkdir -p BOUH_V9_NATIVE_OSMDROID/app/src/main/res/mipmap-anydpi-v26
+
+          cat > BOUH_V9_NATIVE_OSMDROID/settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name='BOUH V9 Native Osmdroid'
+          include ':app'
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.6.1' apply false }
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+
+          android {
+              namespace 'com.bouh.v9'
+              compileSdk 35
+              defaultConfig {
+                  applicationId 'com.bouh.v9'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 9
+                  versionName '9.0.0-native-osmdroid'
+              }
+          }
+
+          dependencies {
+              implementation 'org.osmdroid:osmdroid-android:6.1.18'
+              implementation 'net.zetetic:android-database-sqlcipher:4.5.4'
+              implementation 'androidx.sqlite:sqlite:2.3.1'
+          }
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+            <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+              <item name="android:fontFamily">sans</item>
+              <item name="android:statusBarColor">#050505</item>
+              <item name="android:navigationBarColor">#050505</item>
+              <item name="android:windowNoTitle">true</item>
+            </style>
+          </resources>
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/res/drawable/ic_launcher_background.xml <<'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+            <gradient android:startColor="#070604" android:centerColor="#38240D" android:endColor="#C79A3C" android:angle="315"/>
+          </shape>
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#0A0703" android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
+            <path android:fillColor="#3A260D" android:pathData="M14,14 L94,14 L94,94 L14,94 Z"/>
+            <path android:fillColor="#D8B56A" android:pathData="M54,12 L72,30 L90,34 L76,49 L80,70 L60,61 L42,76 L43,55 L25,43 L46,38 Z"/>
+            <path android:fillColor="#FFF0B8" android:pathData="M68,31 L74,34 L69,38 Z"/>
+            <path android:fillColor="#120C05" android:pathData="M50,42 L71,43 L58,51 L75,61 L49,57 L35,68 L43,51 Z"/>
+          </vector>
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@drawable/ic_launcher_background"/>
+            <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@drawable/ic_launcher_background"/>
+            <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+            <uses-permission android:name="android.permission.VIBRATE"/>
+            <application android:allowBackup="false" android:usesCleartextTraffic="true" android:theme="@style/AppTheme" android:label="بوح التضاريس" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round">
+              <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          EOF
+
+          cat > BOUH_V9_NATIVE_OSMDROID/app/src/main/java/com/bouh/v9/MainActivity.java <<'EOF'
+          package com.bouh.v9;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Context;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
+          import android.graphics.Color;
+          import android.location.Location;
+          import android.location.LocationManager;
+          import android.os.Bundle;
+          import android.os.Vibrator;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.FrameLayout;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import org.osmdroid.config.Configuration;
+          import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+          import org.osmdroid.util.GeoPoint;
+          import org.osmdroid.views.MapView;
+          import org.osmdroid.views.overlay.Marker;
+          import org.osmdroid.views.overlay.Polygon;
+          import org.osmdroid.views.overlay.Polyline;
+          import java.io.File;
+          import java.util.ArrayList;
+          import java.util.List;
+
+          public class MainActivity extends Activity {
+              private MapView map;
+              private TextView hud;
+              private TextView result;
+              private final List<Marker> markers = new ArrayList<>();
+              private final List<Polygon> heat = new ArrayList<>();
+              private final List<Polyline> lines = new ArrayList<>();
+              private boolean heatOn=true, targetsOn=true, structureOn=true;
+              private int records=0, baseMode=0;
+              private static final GeoPoint START = new GeoPoint(19.800000, 36.480000);
+              private static final Target[] TARGETS = new Target[] {
+                new Target("ARB-T1","Arbaat GPZ-Regolith",19.973186,36.745590,"HOLD+",71.4),
+                new Target("ARB-T2","GH/GV alteration",19.881313,36.808758,"HOLD+",72.65),
+                new Target("ARB-T3","Structural jog feeder",19.983058,36.776401,"HOLD",68.1),
+                new Target("REG-P01","Regional v4 P01",20.669096,36.428073,"HOLD",68.05),
+                new Target("A1","GPZ dark regolith analog",19.793522,36.556198,"ANALOG",0.0)
+              };
+
+              @Override public void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  Configuration.getInstance().setUserAgentValue(getPackageName());
+                  Configuration.getInstance().setOsmdroidBasePath(new File(getExternalFilesDir(null),"osmdroid"));
+                  Configuration.getInstance().setOsmdroidTileCache(new File(getExternalFilesDir(null),"tilecache"));
+                  if (android.os.Build.VERSION.SDK_INT >= 23) requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 9);
+                  buildUi();
+                  setupMap();
+                  addTargets();
+                  addHeat();
+                  addStructures();
+                  updateHud();
+              }
+
+              private void buildUi() {
+                  FrameLayout root = new FrameLayout(this);
+                  map = new MapView(this);
+                  root.addView(map, new FrameLayout.LayoutParams(-1,-1));
+
+                  LinearLayout top = new LinearLayout(this);
+                  top.setOrientation(LinearLayout.VERTICAL);
+                  top.setGravity(Gravity.CENTER);
+                  top.setPadding(12,8,12,8);
+                  top.setBackgroundColor(Color.argb(230,8,7,4));
+                  TextView title = new TextView(this);
+                  title.setText("بوح التضاريس\\nBOUH NATIVE OSMDROID V9");
+                  title.setTextColor(Color.rgb(255,225,150));
+                  title.setTextSize(19);
+                  title.setGravity(Gravity.CENTER);
+                  title.setTypeface(null,1);
+                  top.addView(title);
+                  result = new TextView(this);
+                  result.setText("BOUH SUPREME v9 — NATIVE OSMDROID MAP ENGINE");
+                  result.setTextColor(Color.rgb(190,255,200));
+                  result.setGravity(Gravity.CENTER);
+                  result.setTextSize(13);
+                  result.setPadding(10,8,10,8);
+                  result.setBackgroundColor(Color.rgb(16,58,22));
+                  top.addView(result);
+                  root.addView(top, new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+
+                  LinearLayout tools = new LinearLayout(this);
+                  tools.setOrientation(LinearLayout.VERTICAL);
+                  tools.setPadding(0,0,12,0);
+                  tools.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+                  addTool(tools,"+", v->{map.getController().zoomIn(); updateHud();});
+                  addTool(tools,"-", v->{map.getController().zoomOut(); updateHud();});
+                  addTool(tools,"GPS", v->locateMe());
+                  addTool(tools,"AI", v->analyzeCenter());
+                  addTool(tools,"▣", v->toggleHeat());
+                  root.addView(tools, new FrameLayout.LayoutParams(-2,-1,Gravity.RIGHT|Gravity.CENTER_VERTICAL));
+
+                  hud = new TextView(this);
+                  hud.setTextColor(Color.WHITE);
+                  hud.setTextSize(15);
+                  hud.setPadding(18,12,18,12);
+                  hud.setBackgroundColor(Color.argb(220,8,8,7));
+                  FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);
+                  hp.setMargins(18,0,18,92);
+                  root.addView(hud,hp);
+
+                  LinearLayout bottom = new LinearLayout(this);
+                  bottom.setOrientation(LinearLayout.HORIZONTAL);
+                  bottom.setGravity(Gravity.CENTER);
+                  bottom.setBackgroundColor(Color.argb(245,8,8,7));
+                  addBottom(bottom,"خرائط",v->cycleBase());
+                  addBottom(bottom,"أهداف",v->toggleTargets());
+                  addBottom(bottom,"بنية",v->toggleStructure());
+                  addBottom(bottom,"حفظ",v->saveRecord());
+                  addBottom(bottom,"أمان",v->panic());
+                  root.addView(bottom,new FrameLayout.LayoutParams(-1,82,Gravity.BOTTOM));
+                  setContentView(root);
+              }
+
+              private void addTool(LinearLayout p,String t,View.OnClickListener l){
+                  Button b=new Button(this); b.setText(t); b.setTextSize(t.length()>1?13:24); b.setTextColor(Color.rgb(255,226,160)); b.setBackgroundColor(Color.argb(235,10,10,8)); b.setOnClickListener(l);
+                  LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(74,68); lp.setMargins(0,8,0,8); p.addView(b,lp);
+              }
+              private void addBottom(LinearLayout p,String t,View.OnClickListener l){
+                  Button b=new Button(this); b.setText(t); b.setTextSize(13); b.setTextColor(Color.rgb(210,195,160)); b.setBackgroundColor(Color.argb(255,8,8,7)); b.setOnClickListener(l); p.addView(b,new LinearLayout.LayoutParams(0,-1,1));
+              }
+              private void setupMap(){
+                  map.setTileSource(TileSourceFactory.MAPNIK);
+                  map.setMultiTouchControls(true);
+                  map.setTilesScaledToDpi(true);
+                  map.getController().setZoom(12.0);
+                  map.getController().setCenter(START);
+              }
+              private void addTargets(){
+                  for(Target t:TARGETS){
+                      Marker m=new Marker(map);
+                      m.setPosition(new GeoPoint(t.lat,t.lon));
+                      m.setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_BOTTOM);
+                      m.setTitle(t.id+" | "+t.status);
+                      m.setSubDescription(t.name+"\\nIPI: "+t.ipi+"\\nField-check only.");
+                      markers.add(m); map.getOverlays().add(m);
+                  }
+              }
+              private void addHeat(){
+                  for(Target t:TARGETS){
+                      Polygon c=new Polygon(map);
+                      c.setPoints(Polygon.pointsAsCircle(new GeoPoint(t.lat,t.lon), t.ipi>70?1300:850));
+                      c.getFillPaint().setColor(Color.argb(70,255,190,55));
+                      c.getOutlinePaint().setColor(Color.argb(210,255,226,120));
+                      c.getOutlinePaint().setStrokeWidth(3f);
+                      heat.add(c); map.getOverlays().add(c);
+                  }
+              }
+              private void addStructures(){
+                  addLine(new double[][]{{19.75,36.42},{19.82,36.50},{19.95,36.70}});
+                  addLine(new double[][]{{19.86,36.82},{19.98,36.77},{20.15,36.66}});
+                  addLine(new double[][]{{20.60,36.36},{20.67,36.43},{20.93,36.49}});
+              }
+              private void addLine(double[][] pts){
+                  Polyline l=new Polyline(map); List<GeoPoint> gp=new ArrayList<>();
+                  for(double[] p:pts) gp.add(new GeoPoint(p[0],p[1]));
+                  l.setPoints(gp); l.getOutlinePaint().setColor(Color.argb(230,80,210,255)); l.getOutlinePaint().setStrokeWidth(5f);
+                  lines.add(l); map.getOverlays().add(l);
+              }
+              private void toggleHeat(){heatOn=!heatOn; for(Polygon p:heat)p.setEnabled(heatOn); map.invalidate(); toast(heatOn?"تم تفعيل طبقة الاحتمالات":"تم إخفاء طبقة الاحتمالات");}
+              private void toggleTargets(){targetsOn=!targetsOn; for(Marker m:markers)m.setEnabled(targetsOn); map.invalidate(); toast(targetsOn?"تم تفعيل الأهداف":"تم إخفاء الأهداف");}
+              private void toggleStructure(){structureOn=!structureOn; for(Polyline l:lines)l.setEnabled(structureOn); map.invalidate(); toast(structureOn?"تم تفعيل البنية":"تم إخفاء البنية");}
+              private void cycleBase(){baseMode=(baseMode+1)%2; map.setTileSource(baseMode==0?TileSourceFactory.MAPNIK:TileSourceFactory.USGS_TOPO); toast(baseMode==0?"OpenStreetMap":"USGS Topo"); updateHud();}
+              private void locateMe(){
+                  try{
+                    if(android.os.Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){toast("GPS permission missing"); return;}
+                    LocationManager lm=(LocationManager)getSystemService(Context.LOCATION_SERVICE); Location best=null;
+                    for(String p:lm.getProviders(true)){Location l=lm.getLastKnownLocation(p); if(l!=null&&(best==null||l.getAccuracy()<best.getAccuracy()))best=l;}
+                    if(best==null){toast("لا يوجد قفل GPS حالياً"); return;}
+                    GeoPoint g=new GeoPoint(best.getLatitude(),best.getLongitude()); map.getController().animateTo(g); map.getController().setZoom(16.0); toast("GPS ±"+Math.round(best.getAccuracy())+"m"); updateHud();
+                  }catch(Exception e){toast("GPS error");}
+              }
+              private void analyzeCenter(){
+                  GeoPoint c=(GeoPoint)map.getMapCenter(); Target n=nearest(c); double d=dist(c.getLatitude(),c.getLongitude(),n.lat,n.lon); double ipi=Math.max(35,78-(d/900.0)); String st=ipi>=65?"FIELD-CHECK":"HOLD";
+                  result.setText("الحكم: "+st+" | IPI "+String.format("%.1f",ipi)+" | أقرب مرجع "+n.id); updateHud();
+              }
+              private void saveRecord(){records++; SharedPreferences sp=getSharedPreferences("BOUH_NATIVE_RECORDS",MODE_PRIVATE); GeoPoint c=(GeoPoint)map.getMapCenter(); String old=sp.getString("records",""); sp.edit().putString("records",old+"\\n"+System.currentTimeMillis()+","+c.getLatitude()+","+c.getLongitude()).apply(); toast("تم حفظ سجل محلي: "+records); updateHud();}
+              private void panic(){getSharedPreferences("BOUH_NATIVE_RECORDS",MODE_PRIVATE).edit().clear().apply(); records=0; toast("تم المسح الآمن"); updateHud();}
+              private void updateHud(){GeoPoint c=(GeoPoint)map.getMapCenter(); hud.setText("Lat: "+String.format("%.6f",c.getLatitude())+"    Lon: "+String.format("%.6f",c.getLongitude())+"\\nZoom: "+String.format("%.1f",map.getZoomLevelDouble())+"    Records: "+records+"\\nNative Osmdroid | BOUH V9");}
+              private Target nearest(GeoPoint c){Target b=TARGETS[0]; double bd=Double.MAX_VALUE; for(Target t:TARGETS){double d=dist(c.getLatitude(),c.getLongitude(),t.lat,t.lon); if(d<bd){bd=d; b=t;}} return b;}
+              private double dist(double a,double b,double c,double d){double R=6371000,la=Math.toRadians(c-a),lo=Math.toRadians(d-b),x=Math.sin(la/2)*Math.sin(la/2)+Math.cos(Math.toRadians(a))*Math.cos(Math.toRadians(c))*Math.sin(lo/2)*Math.sin(lo/2); return 2*R*Math.asin(Math.sqrt(x));}
+              private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show(); try{Vibrator v=(Vibrator)getSystemService(Context.VIBRATOR_SERVICE); if(v!=null)v.vibrate(30);}catch(Exception ignored){}}
+              @Override public void onResume(){super.onResume(); if(map!=null)map.onResume();}
+              @Override public void onPause(){if(map!=null)map.onPause(); super.onPause();}
+              static class Target{String id,name,status; double lat,lon,ipi; Target(String i,String n,double a,double o,String s,double p){id=i;name=n;lat=a;lon=o;status=s;ipi=p;}}
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          cd BOUH_V9_NATIVE_OSMDROID
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Package outputs
+        run: |
+          mkdir -p output
+          cp BOUH_V9_NATIVE_OSMDROID/app/build/outputs/apk/debug/app-debug.apk output/BOUH_V9_NATIVE_OSMDROID-debug.apk
+          cp BOUH_V9_NATIVE_OSMDROID/app/src/main/AndroidManifest.xml output/AndroidManifest_V9.xml
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOUH_V9_NATIVE_OSMDROID_APK
+          path: output/*
