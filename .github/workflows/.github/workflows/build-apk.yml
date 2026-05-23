@@ -1,0 +1,361 @@
+name: Build BOUH QUEST PRO Navigator APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Generate BOUH Quest Pro Android project
+        run: |
+          rm -rf generated_app
+          mkdir -p generated_app/app/src/main/java/com/bouh/questpro
+          mkdir -p generated_app/app/src/main/res/values
+          mkdir -p generated_app/app/src/main/assets
+
+          cat > generated_app/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name='BOUH QUEST PRO'
+          include ':app'
+          EOF
+
+          cat > generated_app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.6.1' apply false
+          }
+          EOF
+
+          cat > generated_app/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+
+          android {
+              namespace 'com.bouh.questpro'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.bouh.questpro'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 2
+                  versionName '2.0.0'
+              }
+          }
+          EOF
+
+          cat > generated_app/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#0B1120</item>
+                  <item name="android:navigationBarColor">#0B1120</item>
+                  <item name="android:windowFullscreen">false</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > generated_app/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <uses-permission android:name="android.permission.VIBRATE"/>
+
+              <application
+                  android:allowBackup="true"
+                  android:usesCleartextTraffic="true"
+                  android:theme="@style/AppTheme"
+                  android:label="BOUH QUEST PRO">
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > generated_app/app/src/main/java/com/bouh/questpro/MainActivity.java <<'EOF'
+          package com.bouh.questpro;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Context;
+          import android.content.pm.PackageManager;
+          import android.location.Location;
+          import android.location.LocationManager;
+          import android.os.Bundle;
+          import android.os.Vibrator;
+          import android.webkit.GeolocationPermissions;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.widget.Toast;
+
+          public class MainActivity extends Activity {
+              private WebView webView;
+              private LocationManager locationManager;
+              private static final int REQ_LOCATION = 800;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  s.setAllowContentAccess(true);
+                  s.setDatabaseEnabled(true);
+                  s.setGeolocationEnabled(true);
+                  s.setBuiltInZoomControls(false);
+                  s.setDisplayZoomControls(false);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+
+                  webView.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                          callback.invoke(origin, true, false);
+                      }
+                  });
+
+                  webView.addJavascriptInterface(new Bridge(), "BOUH");
+                  if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                      checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+                  }
+                  webView.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == REQ_LOCATION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                      Toast.makeText(this, "GPS enabled", Toast.LENGTH_SHORT).show();
+                  }
+              }
+
+              public class Bridge {
+                  @JavascriptInterface
+                  public String lastLocation() {
+                      try {
+                          if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                              checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                              return "{\"ok\":false,\"error\":\"NO_PERMISSION\"}";
+                          }
+                          Location best = null;
+                          for (String p : locationManager.getProviders(true)) {
+                              Location l = locationManager.getLastKnownLocation(p);
+                              if (l != null && (best == null || l.getAccuracy() < best.getAccuracy())) best = l;
+                          }
+                          if (best == null) return "{\"ok\":false,\"error\":\"NO_FIX\"}";
+                          return "{\"ok\":true,\"lat\":" + best.getLatitude() +
+                                 ",\"lon\":" + best.getLongitude() +
+                                 ",\"acc\":" + best.getAccuracy() +
+                                 ",\"alt\":" + best.getAltitude() +
+                                 ",\"speed\":" + best.getSpeed() +
+                                 ",\"bearing\":" + best.getBearing() + "}";
+                      } catch (Exception e) {
+                          return "{\"ok\":false,\"error\":\"GPS_ERROR\"}";
+                      }
+                  }
+
+                  @JavascriptInterface
+                  public void vibrate(int ms) {
+                      try {
+                          Vibrator v = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+                          if (v != null) v.vibrate(ms);
+                      } catch (Exception ignored) {}
+                  }
+              }
+          }
+          EOF
+
+          cat > generated_app/app/src/main/assets/targets.csv <<'EOF'
+          id,lat,lon,name,class,priority,radius_m,note
+          DEMO-01,19.789000,36.451000,Demo Radar Circle,Example,HOLD,30,Example only - replace with real BOUH field data
+          T1,19.973186,36.745590,Arbaat Field Candidate Example,GPZ-Regolith,HOLD,75,Stored as example screen layer - verify with real raw files
+          T2,19.881313,36.808758,Alteration Cluster Example,GH/GV,HOLD,120,Stored as example screen layer - verify with real raw files
+          EOF
+
+          cat > generated_app/app/src/main/assets/layers.geojson <<'EOF'
+          {"type":"FeatureCollection","features":[
+            {"type":"Feature","properties":{"name":"Demo Structural Corridor","class":"Structure","priority":"HOLD"},"geometry":{"type":"LineString","coordinates":[[36.42,19.78],[36.45,19.80],[36.48,19.83]]}},
+            {"type":"Feature","properties":{"name":"Demo Wadi Interface","class":"Drainage","priority":"HOLD"},"geometry":{"type":"LineString","coordinates":[[36.72,19.95],[36.745,19.973],[36.775,19.985]]}},
+            {"type":"Feature","properties":{"name":"Demo Field Polygon","class":"Prospectivity Zone","priority":"Candidate"},"geometry":{"type":"Polygon","coordinates":[[[36.72,19.94],[36.79,19.94],[36.79,20.01],[36.72,20.01],[36.72,19.94]]]}}
+          ]}
+          EOF
+
+          cat > generated_app/app/src/main/assets/index.html <<'EOF'
+          <!doctype html>
+          <html lang="ar" dir="rtl">
+          <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+          <title>BOUH QUEST PRO</title>
+          <style>
+          :root{--bg:#0b1120;--panel:#111827;--panel2:#1f2937;--line:#374151;--text:#f9fafb;--muted:#9ca3af;--gold:#facc15;--cyan:#67e8f9;--green:#34d399;--red:#f87171}
+          *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+          html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Arial,Tahoma,sans-serif}
+          #app{position:fixed;inset:0;background:#0b1120}
+          #map{position:absolute;inset:0;background:linear-gradient(135deg,#1f2937,#3f2f1d,#0b1120)}
+          canvas{position:absolute;inset:0}
+          #top{position:absolute;top:0;left:0;right:0;height:64px;background:rgba(11,17,32,.94);border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;padding:6px 10px;gap:10px;z-index:5;direction:rtl}
+          #menuBtn,#gpsBtn{width:52px;height:46px;border-radius:16px;border:1px solid var(--line);background:#182234;color:#fff;font-weight:900}
+          #brand{flex:1;text-align:center;line-height:1.2}.brand1{font-size:15px;font-weight:900;letter-spacing:2px}.brand2{font-size:11px;color:var(--muted)}
+          #sun{width:46px;height:46px;border-radius:18px;background:radial-gradient(circle,#facc15,#92400e,#111827);box-shadow:0 0 22px rgba(250,204,21,.42)}
+          #infoBox{position:absolute;top:76px;left:10px;background:rgba(255,255,255,.96);color:#111827;border-radius:8px;padding:8px 12px;z-index:4;direction:ltr;font-weight:700;box-shadow:0 8px 22px rgba(0,0,0,.25)}
+          #centerMark{position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;background:rgba(17,24,39,.65);transform:translate(-50%,-50%);z-index:4;box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+          #status{position:absolute;top:76px;left:10px;right:10px;text-align:center;background:rgba(17,24,39,.55);color:#fff;font-size:12px;border-radius:12px;padding:6px;z-index:3;pointer-events:none}
+          #zoomCtl{position:absolute;right:12px;top:146px;z-index:4;display:flex;flex-direction:column;gap:10px}.zbtn{width:58px;height:58px;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:rgba(31,41,55,.92);color:#fff;font-size:26px;font-weight:900}.zbtn.small{font-size:16px}
+          #hud{position:absolute;left:12px;right:12px;bottom:86px;z-index:4;background:rgba(11,17,32,.88);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+          .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{background:#1a2537;border-radius:14px;padding:10px}.label{font-size:11px;color:var(--muted)}.value{font-weight:900;font-size:18px;direction:ltr;text-align:left}
+          #bottom{position:absolute;left:0;right:0;bottom:0;height:74px;z-index:6;background:rgba(17,24,39,.96);border-top:1px solid rgba(255,255,255,.10);display:grid;grid-template-columns:repeat(5,1fr)}
+          .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#e5e7eb;border-left:1px solid rgba(255,255,255,.06);font-size:11px}.tab b{font-size:24px}.tab.active{background:#f9fafb;color:#111827}
+          .sheet{position:absolute;left:0;right:0;bottom:74px;max-height:68%;background:#f8fafc;color:#111827;border-radius:22px 22px 0 0;z-index:7;box-shadow:0 -12px 32px rgba(0,0,0,.35);display:none;overflow:auto;direction:rtl}
+          .sheet.show{display:block}.sheetHead{position:sticky;top:0;background:#f8fafc;display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e5e7eb;z-index:2}.sheetTitle{flex:1;font-size:21px;font-weight:800}.close{border:0;background:transparent;font-size:28px}
+          .item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #e5e7eb}.itemIcon{width:38px;text-align:center;font-size:26px}.itemText{flex:1}.itemText b{font-size:18px}.itemText p{margin:2px 0 0;color:#6b7280;font-size:12px}.switch{width:48px;height:28px;border-radius:999px;background:#d1d5db;position:relative}.switch.on{background:#22c55e}.switch:after{content:"";position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#fff}.switch.on:after{left:24px}
+          .layerThumb{height:54px;width:90px;border-radius:8px;background:linear-gradient(135deg,#18324a,#b08952,#e5e7eb);border:1px solid #d1d5db}.danger{color:#b91c1c}.ok{color:#047857}
+          #toast{position:absolute;bottom:168px;left:30px;right:30px;text-align:center;background:rgba(0,0,0,.78);color:#fff;padding:10px;border-radius:999px;z-index:20;display:none}
+          input[type=range]{width:100%}
+          </style>
+          </head>
+          <body>
+          <div id="app">
+            <div id="map"><canvas id="cv"></canvas></div>
+            <div id="top"><button id="gpsBtn" onclick="locateMe()">GPS</button><div id="brand"><div class="brand1">بوح التضاريس | QUEST PRO</div><div class="brand2">Maps • Layers • Placemarks • GPS • Compass</div></div><div id="sun"></div></div>
+            <div id="infoBox"><span id="coord">19.800000°N 36.480000°E</span><br><small id="scale">Scale 1:25K • DEM/Grid</small></div>
+            <div id="status">جاهز للملاحة الميدانية — BOUH offline navigator</div>
+            <div id="centerMark" onclick="openSheet('center')"></div>
+            <div id="zoomCtl"><button class="zbtn" onclick="zoomBy(1)">+</button><button class="zbtn" onclick="zoomBy(-1)">−</button><button class="zbtn small" onclick="toggleRadar()">RAD</button><button class="zbtn small" onclick="openSheet('tools')">⋮</button></div>
+            <div id="hud"><div class="grid">
+              <div class="card"><div class="label">Longitude</div><div id="lon" class="value">36.480000</div></div>
+              <div class="card"><div class="label">Latitude</div><div id="lat" class="value">19.800000</div></div>
+              <div class="card"><div class="label">Zoom / Scale</div><div id="zoomText" class="value">12</div></div>
+              <div class="card"><div class="label">Mode</div><div id="modeText" class="value">BOUH Radar</div></div>
+            </div></div>
+
+            <div id="bottom">
+              <div class="tab" onclick="openSheet('app')"><b>☰</b><span>النظام</span></div>
+              <div class="tab" onclick="openSheet('maps')"><b>▰</b><span>الخرائط</span></div>
+              <div class="tab" onclick="openSheet('marks')"><b>⚑</b><span>المعالم</span></div>
+              <div class="tab" onclick="openSheet('gps')"><b>⌖</b><span>GPS</span></div>
+              <div class="tab" onclick="openSheet('compass')"><b>◈</b><span>البوصلة</span></div>
+            </div>
+
+            <div id="sheet" class="sheet"></div>
+            <div id="toast"></div>
+          </div>
+
+          <script>
+          const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),sheet=document.getElementById('sheet');
+          let center={lat:19.80,lon:36.48},gps=null,zoom=12,radar=true,showGrid=true,showTargets=true,showGeo=true,showSatellite=true,track=[],measure=[];
+          let targets=[
+            {id:'DEMO-01',lat:19.789,lon:36.451,name:'Demo Radar Circle',class:'Example',priority:'HOLD',r:30},
+            {id:'T1',lat:19.973186,lon:36.745590,name:'Arbaat Candidate Example',class:'GPZ-Regolith',priority:'HOLD',r:75},
+            {id:'T2',lat:19.881313,lon:36.808758,name:'Alteration Cluster Example',class:'GH/GV',priority:'HOLD',r:120}
+          ];
+          let lines=[[[19.78,36.42],[19.80,36.45],[19.83,36.48]],[[19.95,36.72],[19.973,36.745],[19.985,36.775]]];
+
+          function resize(){cv.width=innerWidth;cv.height=innerHeight;draw()} addEventListener('resize',resize);
+          function factor(){return 9000*Math.pow(1.24,zoom-12)}
+          function project(lat,lon){return{x:(lon-center.lon)*factor()+cv.width/2,y:(center.lat-lat)*factor()+cv.height/2}}
+          function unproject(x,y){return{lon:(x-cv.width/2)/factor()+center.lon,lat:center.lat-(y-cv.height/2)/factor()}}
+          function metersToPixels(m,lat=center.lat){return m*(zoom/12)*0.85}
+          function dist(a,b){let R=6371000,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180,dla=(b.lat-a.lat)*Math.PI/180,dlo=(b.lon-a.lon)*Math.PI/180;let h=Math.sin(dla/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+          function draw(){ctx.clearRect(0,0,cv.width,cv.height);drawBase();if(showGrid)drawGrid();if(showGeo)drawGeo();if(radar)drawRadar();if(showTargets)drawTargets();drawTrack();drawMeasure();drawGps();updateHud()}
+          function drawBase(){let g=ctx.createLinearGradient(0,0,cv.width,cv.height);g.addColorStop(0,showSatellite?'#1f2937':'#263c30');g.addColorStop(.5,showSatellite?'#59422a':'#466d51');g.addColorStop(1,'#0b1120');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);ctx.globalAlpha=.22;for(let i=0;i<40;i++){ctx.beginPath();ctx.arc((i*97)%cv.width,(i*151)%cv.height,80+(i%5)*35,0,Math.PI*2);ctx.fillStyle=i%2?'#8b5e34':'#111827';ctx.fill()}ctx.globalAlpha=1}
+          function drawGrid(){ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;for(let x=0;x<cv.width;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke()}for(let y=0;y<cv.height;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke()}}
+          function drawGeo(){ctx.lineWidth=3;lines.forEach((ln,k)=>{ctx.strokeStyle=k?'rgba(52,211,153,.82)':'rgba(103,232,249,.88)';ctx.beginPath();ln.forEach((p,i)=>{let q=project(p[0],p[1]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.stroke()})}
+          function drawRadar(){let x=cv.width/2,y=cv.height/2;ctx.save();ctx.strokeStyle='rgba(52,211,153,.45)';ctx.lineWidth=1;for(let r=70;r<cv.width;r+=70){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke()}for(let a=0;a<360;a+=30){let t=a*Math.PI/180;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(t)*cv.width,y+Math.sin(t)*cv.width);ctx.stroke()}ctx.restore()}
+          function drawTargets(){targets.forEach(t=>{let p=project(t.lat,t.lon),r=metersToPixels(t.r,t.lat);ctx.fillStyle=t.priority==='HOLD'?'rgba(250,204,21,.16)':'rgba(52,211,153,.16)';ctx.strokeStyle=t.class.includes('GPZ')?'#facc15':'#67e8f9';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 12px Arial';ctx.fillText(t.id,p.x+8,p.y-8)})}
+          function drawGps(){if(!gps)return;let p=project(gps.lat,gps.lon);ctx.fillStyle='rgba(96,165,250,.18)';ctx.strokeStyle='#60a5fa';ctx.beginPath();ctx.arc(p.x,p.y,metersToPixels(gps.acc||20,gps.lat),0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#60a5fa';ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.fill();ctx.stroke()}
+          function drawTrack(){if(track.length<2)return;ctx.strokeStyle='#f87171';ctx.lineWidth=3;ctx.beginPath();track.forEach((t,i)=>{let p=project(t.lat,t.lon);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.stroke()}
+          function drawMeasure(){if(measure.length<1)return;ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.beginPath();measure.forEach((m,i)=>{let p=project(m.lat,m.lon);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.stroke();ctx.setLineDash([])}
+          function updateHud(){lat.textContent=center.lat.toFixed(6);lon.textContent=center.lon.toFixed(6);zoomText.textContent=String(zoom);modeText.textContent=radar?'BOUH Radar':'Map';coord.textContent=center.lat.toFixed(6)+'°N  '+center.lon.toFixed(6)+'°E';scale.textContent='Zoom '+zoom+' • '+(gps?('GPS ±'+Math.round(gps.acc)+'m'):'No GPS fix')}
+          function zoomBy(d){zoom=Math.max(1,Math.min(22,zoom+d));draw();vib(20)}
+          function toggleRadar(){radar=!radar;draw();toast(radar?'Radar enabled':'Radar hidden')}
+          function locateMe(){toast('جار تحديث GPS...');try{let r=JSON.parse(BOUH.lastLocation());if(r.ok){gps=r;center={lat:r.lat,lon:r.lon};track.push({lat:r.lat,lon:r.lon,t:Date.now()});draw();toast('GPS OK ±'+Math.round(r.acc)+'m')}else toast('GPS: '+r.error)}catch(e){toast('GPS غير متاح الآن')}}
+          function vib(ms){try{BOUH.vibrate(ms)}catch(e){}}
+          function toast(t){let el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>el.style.display='none',2200)}
+          function row(icon,title,sub,action='',right=''){return `<div class="item" ${action?`onclick="${action}"`:''}><div class="itemIcon">${icon}</div><div class="itemText"><b>${title}</b><p>${sub||''}</p></div>${right}</div>`}
+          function sw(on,fn){return `<div onclick="${fn};event.stopPropagation()" class="switch ${on?'on':''}"></div>`}
+          function openSheet(kind){vib(20);let html=`<div class="sheetHead"><button class="close" onclick="closeSheet()">×</button><div class="sheetTitle">${title(kind)}</div><button class="close" onclick="closeSheet()">⋮</button></div>`; 
+            if(kind==='app') html+= row('⚙','الإعدادات','الشاشة، الصيغ، التخزين، الأزرار')+row('▣','مساحات العمل','BOUH / Arbaat / Red Sea Hills')+row('⇅','نسخ احتياطي واستعادة','حفظ/استرجاع المشروع')+row('ⓘ','حول التطبيق','BOUH QUEST PRO v2');
+            if(kind==='maps') html+= row('▰','الخرائط والطبقات','استعراض الخرائط المتاحة')+row('◫','Google Satellite style','طبقة مرئية مؤقتة', '', sw(showSatellite,'showSatellite=!showSatellite;draw();openSheet(\\'maps\\')'))+row('▤','Geological GeoJSON','خطوط، وديان، مضلعات', '', sw(showGeo,'showGeo=!showGeo;draw();openSheet(\\'maps\\')'))+row('◎','BOUH targets CSV','دوائر وأهداف ميدانية', '', sw(showTargets,'showTargets=!showTargets;draw();openSheet(\\'maps\\')'))+row('▦','Grid overlay','شبكة قراءة وملاحة', '', sw(showGrid,'showGrid=!showGrid;draw();openSheet(\\'maps\\')'))+row('☰','إدارة الشفافية','تحكم طبقات العرض <input type=range min=0 max=100 value=70>');
+            if(kind==='marks') html+= row('⚑','المعالم المعروضة','Targets / waypoints / folders')+targets.map(t=>row('📍',t.id+' — '+t.name,t.class+' • '+t.priority,`center={lat:${t.lat},lon:${t.lon}};draw();closeSheet()`)).join('')+row('＋','إنشاء معلم عند المركز','حفظ نقطة جديدة', 'addCenterMark()')+row('⇧','استيراد / تصدير','KML, KMZ, GPX, CSV, GeoJSON');
+            if(kind==='gps') html+= row('⌖','موقفي في الوقت الحقيقي','تحديث GPS وتتبع الحركة','locateMe()')+row('●','مسجل المسار','عدد نقاط المسار: '+track.length)+row('⌁','دقة GPS','يعرض نصف قطر الدقة حول الموقع')+row('↧','تصدير Track GPX','قريباً: إخراج نص GPX');
+            if(kind==='compass') html+= row('◈','البوصلة','اتجاه تقريبي من GPS إن توفر')+row('➤','تعيين وجهة','المركز الحالي كهدف')+row('↗','المسافة إلى المركز','من GPS إلى مركز الخريطة: '+(gps?Math.round(dist(gps,center))+' m':'لا يوجد GPS'))+row('☷','لوحة القيادة','سرعة، ارتفاع، اتجاه، دقة');
+            if(kind==='center') html+= row('◎','نقطة مركز الخريطة',center.lat.toFixed(6)+', '+center.lon.toFixed(6))+row('⚑','إنشاء معلم هنا','حفظ نقطة عند المركز','addCenterMark()')+row('📏','بدء القياس','إضافة نقطة قياس عند المركز','measure.push({lat:center.lat,lon:center.lon});draw();closeSheet();toast(\\'تمت إضافة نقطة قياس\\')')+row('⌖','اذهب إلى GPS','توسيط الخريطة على موقعي','locateMe();closeSheet()');
+            if(kind==='tools') html+= row('📐','أداة قياس','أضف نقاط قياس من مركز الشاشة')+row('🧭','إحداثية مصورة','التقاط/توثيق موضع')+row('🗺','تصدير خريطة','حفظ لقطة/تقرير ميداني')+row('🔎','بحث عن موقع','إدخال إحداثيات يدوياً');
+            sheet.innerHTML=html;sheet.classList.add('show')
+          }
+          function title(k){return {app:'النظام',maps:'الخرائط والطبقات',marks:'المعالم',gps:'وضع GPS',compass:'البوصلة والاتجاه',center:'قائمة مركز الخريطة',tools:'الأدوات'}[k]||'القائمة'}
+          function closeSheet(){sheet.classList.remove('show')}
+          function addCenterMark(){let id='M'+(targets.length+1);targets.push({id,lat:center.lat,lon:center.lon,name:'Center Mark',class:'User',priority:'Field',r:30});draw();closeSheet();toast('تم حفظ المعلم '+id)}
+          let drag=false,last={x:0,y:0};cv.onpointerdown=e=>{drag=true;last={x:e.clientX,y:e.clientY}};cv.onpointermove=e=>{if(!drag)return;let dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};center.lon-=dx/factor();center.lat+=dy/factor();draw()};cv.onpointerup=e=>drag=false;
+          resize();setInterval(()=>{if(gps)locateMe()},30000);
+          </script>
+          </body></html>
+          EOF
+
+      - name: Build debug APK
+        run: |
+          cd generated_app
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp generated_app/app/build/outputs/apk/debug/app-debug.apk output/BOUH_QUEST_PRO_Navigator_v2-debug.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOUH_QUEST_PRO_NAVIGATOR_V2_APK
+          path: output/BOUH_QUEST_PRO_Navigator_v2-debug.apk
