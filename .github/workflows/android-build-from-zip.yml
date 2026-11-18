@@ -45,10 +45,10 @@ jobs:
 
       - name: Auto-detect source ZIP
         shell: bash
+        env:
+          INPUT_ZIP: ${{ inputs.source_zip }}
         run: |
           set -euo pipefail
-
-          INPUT_ZIP="${{ github.event.inputs.source_zip || '' }}"
 
           if [ -n "$INPUT_ZIP" ]; then
             if [ ! -f "$INPUT_ZIP" ]; then
@@ -87,7 +87,7 @@ jobs:
 
             if [ -z "$SOURCE_ZIP" ]; then
               for candidate in "${ZIP_CANDIDATES[@]}"; do
-                if unzip -l "$candidate" | grep -q "data/precomputed/bouh_ground_grid.sqlite"; then
+                if unzip -Z1 "$candidate" | grep -E '(^|/)data/precomputed/bouh_ground_grid[.]sqlite$' >/dev/null; then
                   SOURCE_ZIP="$candidate"
                   break
                 fi
